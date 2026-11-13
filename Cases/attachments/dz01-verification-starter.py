@@ -24,7 +24,7 @@ from pathlib import Path
 # Имя файла содержит дефисы, поэтому обычный import не подходит —
 # модуль загружается по пути через importlib.
 
-AI_CODE_PATH = Path(__file__).with_name("dz01-ai-code.py")
+AI_CODE_PATH = Path(__file__).with_name("dz01-ai-code-fixed.py")
 
 
 def load_quicksort():
@@ -40,24 +40,26 @@ quicksort = load_quicksort()
 # ---------------------------------------------------------------------------
 # 1. Шаг 1 методики: инварианты сортировки
 # ---------------------------------------------------------------------------
-
+from collections import Counter
 
 def is_sorted(a: list[int]) -> bool:
     """Инвариант 1: последовательность упорядочена по неубыванию."""
-    # TODO: реализовать проверку соседних пар
-    raise NotImplementedError
+    return all(a[i] <= a[i + 1] for i in range(len(a) - 1))
 
 
 def same_multiset(a: list[int], b: list[int]) -> bool:
     """Инвариант 2: b — перестановка a (мультимножества элементов совпадают)."""
-    # TODO: реализовать через collections.Counter
-    raise NotImplementedError
+    return Counter(a) == Counter(b)
 
 
 def check_invariants(original: list[int], result: list[int]) -> list[str]:
     """Возвращает список нарушенных инвариантов (пустой список — нарушений нет)."""
-    # TODO: проверить оба инварианта и вернуть понятные сообщения о нарушениях
-    raise NotImplementedError
+    failures = []
+    if not is_sorted(result):
+        failures.append(f'Нарушена упорядоченность выхода: {result}')
+    if not same_multiset(original, result):
+        failures.append(f'Выход не является перестановкой входа: {original}, {result}')
+    return failures
 
 
 # ---------------------------------------------------------------------------
@@ -66,22 +68,36 @@ def check_invariants(original: list[int], result: list[int]) -> list[str]:
 
 
 def representative_cases(rng: random.Random) -> list[tuple[str, list[int]]]:
-    """Именованные тестовые входы по классам методики.
-
-    Обязательные классы: граничные (пустой, один, два элемента);
-    вырожденные (все элементы равны, уже отсортированный, обратно
-    отсортированный); типовые случайные с дубликатами и отрицательными
-    числами (генерируются через rng — seed по варианту).
-    """
-    # TODO: вернуть список пар (название класса, вход)
-    raise NotImplementedError
-
+    """Именованные тестовые входы по классам методики."""
+    cases: list[tuple[str, list[int]]] = [
+        ('граничный: пустой', []),
+        ('граничный: один элемент', [42]),
+        ('граничный: два элемента (убыв.)', [2, 1]),
+        ('граничный: два элемента (равны)', [7, 7]),
+        ('вырожденный: все равны', [5]*10),
+        ('вырожденный: уже отсортирован', list(range(10))),
+        ('вырожденный: обратно отсортирован', list(range(9, -1, -1)))
+    ]
+    typical = [rng.randint(-100, 100) for _ in range(50)]
+    cases.append(('типовой: случайный с дубликатами и отрицательными', typical))
+    return cases
 
 def run_representative_tests(rng: random.Random) -> None:
     """Прогоняет quicksort по всем классам входов и печатает нарушения инвариантов."""
-    # TODO: для каждого входа вызвать quicksort и check_invariants;
-    # TODO: зафиксировать, какой класс входов вскрывает какой дефект.
-    raise NotImplementedError
+    print('=== Щаг 2: репрезентативные тесты ===')
+    found: list[tuple[str, list[int], list[str]]] = []
+    for name, case in representative_cases(rng):
+        result = quicksort(list(case))
+        failures = check_invariants(case, result)
+        if failures:
+            found.append((name, case, failures))
+            print(f'[FAIL] {name}')
+            for f in failures:
+                print(f'{f}')
+        else:
+            ok = 'OK' if result == sorted(case) else 'OK(инварианты, но != sorted)'
+            print(f'[{ok}] {name}')
+    print(f'Итог шага 2: нарушения в {len(found)} классах входов')
 
 
 # ---------------------------------------------------------------------------
@@ -90,16 +106,25 @@ def run_representative_tests(rng: random.Random) -> None:
 
 
 def compare_with_reference(rng: random.Random, runs: int = 300) -> None:
-    """Сверка quicksort с sorted() на сотнях случайных входов.
+    """Сверка quicksort с sorted() на сотнях случайных входов."""
+    print('=== Шаг 3: сравнение с эталоном sorted() ===')
+    mismatches: list[tuple[list[int], list[int], list[int]]] = []
+    for _ in range(runs):
+        n = rng.randint(0, 60) # маленькие размеры
+        src = [rng.randint(-50, 50) for _ in range(n)]
+        out = quicksort(list(src))
+        ref = sorted(src)
+        if out != ref:
+            mismatches.append((src, out, ref))
+    print(f'Расхождений: {len(mismatches)} из {runs}')
+    if mismatches:
+        src, out, ref = min(mismatches, key=lambda t: len(t[0]))
+        print('Минимальный контрпример:')
+        print(f'вход: {src}')
+        print(f'получено: {out}')
+        print(f'эталон: {ref}')
+        print(f'потеряно элементов: {len(ref) - len(out)}')
 
-    Генерируйте входы разных размеров (включая маленькие: именно на них
-    удобно локализовать расхождение), обязательно с дубликатами и
-    отрицательными числами. Каждое расхождение печатайте вместе со входом,
-    чтобы затем свести его к минимальному контрпримеру.
-    """
-    # TODO: цикл на runs итераций: вход -> quicksort(вход) vs sorted(вход);
-    # TODO: подсчитать и напечатать число расхождений и минимальный контрпример.
-    raise NotImplementedError
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +171,6 @@ def run_benchmarks(seed: int) -> None:
                 # Аварийное завершение — тоже результат верификации:
                 # зафиксируйте его в отчёте вместе с размером входа.
                 print(f"  n={n:>6}  RecursionError")
-    # TODO: сопоставить рост времени по классам входов с заявленной в docstring
-    # TODO: оценкой O(n log n); объяснить наблюдаемую деградацию и её причину в коде.
 
 
 # ---------------------------------------------------------------------------
